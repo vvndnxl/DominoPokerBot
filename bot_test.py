@@ -156,20 +156,12 @@ def restart(message):
             _ = None
         lobbies = []
         all_players = {}
-        import gc
         # for obj in gc.get_objects():
         #     if isinstance(obj, Lobby):
         #         obj = None
         # for obj in gc.get_objects():
         #     if isinstance(obj, Player):
         #         obj = None
-        gc.collect()
-        for obj in gc.get_objects():
-            if isinstance(obj, Player):
-                print(obj.name)
-        for obj in gc.get_objects():
-            if isinstance(obj, Lobby):
-                print(obj)
 
 
 @bot.message_handler(commands=['create_lobby'])
