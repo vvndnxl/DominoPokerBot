@@ -55,6 +55,7 @@ class Player:
         self.score_screen: types.Message = None
 
 
+great_restart = False
 s = []
 for i in range(7):
     for j in range(i, 7):
@@ -75,9 +76,15 @@ domino_value = {'sup': -1, '(0 1) as low': 0, '(0 2)': 1, '(1 2)': 2, '(0 3)': 3
 
 
 def wait(lobby):
+    global great_restart
     while not lobby.wait_flag:
         sleep(0.5)
+    if great_restart:
+        lobby.wait_flag = False
+        great_restart = False
+        return True
     lobby.wait_flag = False
+    return False
 
 
 # def error_catcher(chat_id):
@@ -133,11 +140,43 @@ def start(message):
     bot.send_message(message.chat.id, text="Bot started", reply_markup=markup)
 
 
+@bot.message_handler(commands=['restart_bot'])
+def restart(message):
+    global lobbies, all_players, great_restart
+    if message.chat.id == 971385328:
+        great_restart = True
+        for _ in lobbies:
+            _.winner = None
+            for __ in _.players:
+                __ = None
+            _.players = None
+            _ = None
+        for _ in all_players.values():
+            _.lobby = None
+            _ = None
+        lobbies = []
+        all_players = {}
+        import gc
+        # for obj in gc.get_objects():
+        #     if isinstance(obj, Lobby):
+        #         obj = None
+        # for obj in gc.get_objects():
+        #     if isinstance(obj, Player):
+        #         obj = None
+        gc.collect()
+        for obj in gc.get_objects():
+            if isinstance(obj, Player):
+                print(obj.name)
+        for obj in gc.get_objects():
+            if isinstance(obj, Lobby):
+                print(obj)
+
+
 @bot.message_handler(commands=['create_lobby'])
 def lobby_maker(message):
-    all_players[message.chat.id] = Player(message.chat.id, message.chat.first_name)
-    if all_players[message.chat.id].lobby is not None:
+    if message.chat.id in all_players.keys() and all_players[message.chat.id].lobby is not None:
         return
+    all_players[message.chat.id] = Player(message.chat.id, message.chat.first_name)
     lobbies.append(Lobby(str(len(lobbies) + 1), lobby_1_password, all_players[message.chat.id]))
     lobbies[-1].players.append(all_players[message.chat.id])
     all_players[message.chat.id].lobby = lobbies[-1]
@@ -210,9 +249,11 @@ def custom_structure_getter(message):
 
 @bot.message_handler(commands=['join_lobby'])
 def join_lobby_requester(message):
-    all_players[message.chat.id] = (Player(message.chat.id, message.chat.first_name))
+    if message.chat.id in all_players.keys() and all_players[message.chat.id].lobby is not None:
+        return
+    all_players[message.chat.id] = Player(message.chat.id, message.chat.first_name)
     flag = True
-    if len(lobbies) > 0 and all_players[message.chat.id].lobby is None:
+    if len(lobbies) > 0:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         for _ in range(len(lobbies)):
             if len(lobbies[_].players) < 4:
@@ -270,12 +311,12 @@ def lobby_kicker(message):
         lobbies.remove(lobby)
 
 
-@bot.message_handler(commands=['rejoin_lobby'])
-def lobby_rejoiner(message):
-    if message.chat.id not in all_players.keys():
-        return
-    player = all_players[message.chat.id]
-    bot.send_message(player.chat_id, text=player.current_hand, reply_markup=player.screen)
+# @bot.message_handler(commands=['rejoin_lobby'])
+# def lobby_rejoiner(message):
+#     if message.chat.id not in all_players.keys():
+#         return
+#     player = all_players[message.chat.id]
+#     bot.send_message(player.chat_id, text=player.current_hand, reply_markup=player.screen)
     # bot.send_message(player.chat_id, text=player.lobby.score_screen.text)
 
 
@@ -578,7 +619,8 @@ def game_runner(message):
             player = lobby.players[(_ + Round) % players_count]
             player.current_hand = player.hands[Round][::]
             request_bet(player, hand_cap)
-            wait(lobby)  # bet getting
+            if wait(lobby):
+                return # bet getting
             lobby.score_table += f"\n\n<{player.name}> ={player.current_bet}"
             for __ in lobby.players:
                 bot.edit_message_text(text=lobby.score_table,
@@ -592,7 +634,8 @@ def game_runner(message):
                 bet_sum += _.current_bet
         forbidden_bet = hand_cap - bet_sum
         request_bet(player, hand_cap, forbidden_bet)
-        wait(lobby)  # bet getting
+        if wait(lobby):
+            return # bet getting
         lobby.score_table += f"\n\n<{player.name}> ={player.current_bet}"
         for _ in lobby.players:
             bot.edit_message_text(text=lobby.score_table,
@@ -602,12 +645,14 @@ def game_runner(message):
         for __ in range(hand_cap):  # moves
             first_player = lobby.winner  # first move
             request_move(first_player)
-            wait(lobby)  # move getting
+            if wait(lobby):
+                return # move getting
 
             for _ in range(1, players_count):  # beating
                 player = lobby.players[(_ + lobby.players.index(first_player)) % players_count]
                 request_move(player, first_move=first_player.current_move)
-                wait(lobby)  # move getting
+                if wait(lobby):
+                    return # move getting
             lobby.winner.current_beats += 1
 
             lobby.score_table = "__Scoring__"
