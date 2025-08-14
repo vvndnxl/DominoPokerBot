@@ -3,7 +3,7 @@ from telebot import types
 from random import randint
 from time import sleep
 
-bot = telebot.TeleBot("6864196206:AAHs_wafYMVt40dSk5akq3tiizgDDvpGJt8")
+bot = telebot.TeleBot("")
 
 
 # noinspection PyTypeChecker
@@ -714,3 +714,4 @@ def game_runner(message):
 
 
 bot.infinity_polling()
+
